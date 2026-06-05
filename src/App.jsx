@@ -237,17 +237,26 @@ function Pill({ children }) {
 
 function LoginScreen({ onLogin }) {
   const [memberPassword, setMemberPassword] = useState("");
-  const [adminPassword, setAdminPassword] = useState("");
-  const [error, setError] = useState("");
+const [adminPassword, setAdminPassword] = useState("");
+const [selectedMemberGroup, setSelectedMemberGroup] = useState("1조");
+const [error, setError] = useState("");
 
   const loginMember = () => {
-    if (memberPassword === "7777") {
-      setError("");
-      onLogin(initialMembers[0]);
-    } else {
-      setError("조장용 비밀번호가 올바르지 않습니다.");
-    }
-  };
+  if (memberPassword === "7777") {
+    const selectedLeaderName = groupLeaders[selectedMemberGroup] || "조장";
+
+    setError("");
+    onLogin({
+      id: selectedMemberGroup,
+      name: selectedLeaderName,
+      stretcherGroup: selectedMemberGroup,
+      phone: "",
+      role: "member",
+    });
+  } else {
+    setError("조장용 비밀번호가 올바르지 않습니다.");
+  }
+};
 
   const loginAdmin = () => {
     if (adminPassword === "9106") {
@@ -271,6 +280,19 @@ function LoginScreen({ onLogin }) {
           <CardContent className="p-6 space-y-5">
             <div className="space-y-3 rounded-2xl bg-orange-50 p-4">
               <div className="font-bold text-orange-700">조장용 로그인</div>
+             <select
+  className="w-full h-12 rounded-2xl border border-orange-100 bg-white px-4 outline-none"
+  value={selectedMemberGroup}
+  onChange={(e) => setSelectedMemberGroup(e.target.value)}
+>
+  {stretcherGroups
+    .filter((group) => !group.includes("미포함"))
+    .map((group) => (
+      <option key={group} value={group}>
+        {group} - {groupLeaders[group]} 조장
+      </option>
+    ))}
+</select> 
               <input
                 type="password"
                 className="w-full h-12 rounded-2xl border border-orange-100 bg-white px-4 outline-none"
@@ -420,9 +442,9 @@ ${CHURCH_NAME}에서 ${FESTIVAL_DATE}에 ${FESTIVAL_NAME}를 준비했습니다.
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto" onClick={onClose}>
       <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
-        <Card className="rounded-3xl overflow-hidden border-0 shadow-2xl">
+        <Card className="rounded-3xl overflow-hidden border-0 shadow-2xl my-6">
           <div className="relative bg-gradient-to-br from-orange-400 to-rose-400 text-white p-7 text-center">
             
             
@@ -665,15 +687,19 @@ function PastorFeedbackList({ user, reports }) {
 }
 
 function MemberView({ user, targets, setTargets, onInvite, reports, setReports }) {
-  const [selectedGroup, setSelectedGroup] = useState(user.stretcherGroup || "1조");
+  const selectedGroup = user.stretcherGroup || "1조";
   const myTargets = targets.filter((t) => t.stretcherGroup === selectedGroup);
+
   const onAdd = () => {};
+
   const onUpdate = async (id, patch) => {
     await updateDoc(doc(db, "targets", String(id)), patch);
   };
+
   const onDelete = async (target) => {
     await deleteDoc(doc(db, "targets", String(target.id)));
   };
+
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -682,26 +708,41 @@ function MemberView({ user, targets, setTargets, onInvite, reports, setReports }
         <StatCard icon={Mail} label="초대장" value={myTargets.filter((t) => t.invited).length} />
         <StatCard icon={CalendarDays} label="참석 예정" value={myTargets.filter((t) => t.attending === "참석예정").length} />
       </div>
+
       <div className="rounded-3xl bg-white/90 shadow-sm p-5 space-y-3">
         <div className="font-black text-lg">들것지기 조별 대상자 보기</div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <select
-            className="h-12 rounded-2xl bg-slate-50 px-4 outline-none"
-            value={selectedGroup}
-            onChange={(e) => setSelectedGroup(e.target.value)}
-          >
-            {stretcherGroups.map((group) => <option key={group}>{group}</option>)}
-          </select>
-          <div className="h-12 rounded-2xl bg-orange-50 px-4 flex items-center text-sm text-orange-700 font-bold">
-            현재 {selectedGroup}에 등록된 전도 대상자만 아래에 표시됩니다.
-          </div>
+        <div className="h-12 rounded-2xl bg-orange-50 px-4 flex items-center text-sm text-orange-700 font-bold">
+          현재 {selectedGroup}에 등록된 전도 대상자만 표시됩니다.
         </div>
       </div>
-      <WeeklyReportForm user={{ ...user, stretcherGroup: selectedGroup }} reports={reports} setReports={setReports} />
-      <PastorFeedbackList user={{ ...user, stretcherGroup: selectedGroup }} reports={reports} />
-      <TargetForm onAdd={onAdd} currentUser={user} selectedGroup={selectedGroup} onGroupChange={setSelectedGroup} />
+
+      <WeeklyReportForm
+        user={{ ...user, stretcherGroup: selectedGroup }}
+        reports={reports}
+        setReports={setReports}
+      />
+
+      <PastorFeedbackList
+        user={{ ...user, stretcherGroup: selectedGroup }}
+        reports={reports}
+      />
+
+      <TargetForm
+        onAdd={onAdd}
+        currentUser={{ ...user, stretcherGroup: selectedGroup }}
+        selectedGroup={selectedGroup}
+      />
+
       <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {myTargets.map((target) => <TargetCard key={target.id} target={target} onUpdate={onUpdate} onInvite={onInvite} onDelete={onDelete} />)}
+        {myTargets.map((target) => (
+          <TargetCard
+            key={target.id}
+            target={target}
+            onUpdate={onUpdate}
+            onInvite={onInvite}
+            onDelete={onDelete}
+          />
+        ))}
       </div>
     </div>
   );
@@ -897,7 +938,18 @@ function WeeklyReportForm({ user, reports, setReports }) {
 
 function ReportsView({ user, reports, setReports }) {
   const isAdmin = user.role === "admin";
-  const visibleReports = isAdmin ? reports : reports.filter((r) => r.stretcherGroup === user.stretcherGroup);
+const [selectedWeek, setSelectedWeek] = useState("전체");
+
+const weekTabs = [
+  "전체",
+  ...Array.from(new Set(reports.map((r) => r.week).filter(Boolean))),
+];
+
+const visibleReports = reports.filter((r) => {
+  const roleMatch = isAdmin || r.stretcherGroup === user.stretcherGroup;
+  const weekMatch = selectedWeek === "전체" || r.week === selectedWeek;
+  return roleMatch && weekMatch;
+});
 
   const updatePastorComment = async (id, value) => {
     await updateDoc(doc(db, "reports", String(id)), { pastorComment: value });
@@ -927,6 +979,24 @@ function ReportsView({ user, reports, setReports }) {
       <Card className="rounded-3xl border-0 shadow-sm">
         <CardContent className="p-5 space-y-4">
           <h3 className="text-lg font-black">조별 활동보고</h3>
+         {isAdmin && (
+  <div className="flex flex-wrap gap-2">
+    {weekTabs.map((week) => (
+      <button
+        key={week}
+        type="button"
+        onClick={() => setSelectedWeek(week)}
+        className={`px-4 py-2 rounded-2xl text-sm font-bold ${
+          selectedWeek === week
+            ? "bg-orange-500 text-white"
+            : "bg-slate-100 text-slate-600"
+        }`}
+      >
+        {week}
+      </button>
+    ))}
+  </div>
+)} 
           {visibleReports.map((report) => (
             <div key={report.id} className="rounded-3xl bg-slate-50 p-4 space-y-3">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
@@ -1107,14 +1177,17 @@ export default function App() {
     await deleteDoc(doc(db, "targets", String(target.id)));
   };
 
-  if (!user) return <LoginScreen onLogin={setUser} />;
+ const handleLogin = (loginUser) => {
+  setUser(loginUser);
+  setTab(loginUser.role === "admin" ? "admin" : "member");
+};
 
-  const menu = [
-    { id: "home", label: "홈", icon: Home },
-    { id: "member", label: "조장용", icon: UserRound },
-    { id: "admin", label: "목사님용", icon: LayoutDashboard },
-    { id: "guide", label: "설계", icon: ShieldCheck },
-  ];
+if (!user) return <LoginScreen onLogin={handleLogin} />;
+
+ const menu =
+  user.role === "admin"
+    ? [{ id: "admin", label: "목사님용", icon: LayoutDashboard }]
+    : [{ id: "member", label: "조장용", icon: UserRound }];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-rose-50 text-slate-900">
@@ -1146,7 +1219,7 @@ export default function App() {
           </div>
         </section>
 
-        {tab === "home" && (
+       {false && tab === "home" && (
           <div className="space-y-5">
             <ScheduleCard />
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">

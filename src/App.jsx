@@ -78,6 +78,16 @@ const festivalSchedule = [
   { period: "7월 19일", activity: "새생명축제" },
 ];
 
+const reportWeeks = [
+  "6월 1주차",
+  "6월 2주차",
+  "6월 3주차",
+  "6월 4주차",
+  "7월 1주차",
+  "7월 2주차",
+  "7월 3주차",
+];
+
 const initialMembers = [
   { id: 1, name: "백종칠", stretcherGroup: "1조", phone: "010-1111-2222", role: "member" },
   { id: 2, name: "류 관", stretcherGroup: "2조", phone: "010-3333-4444", role: "member" },
@@ -597,8 +607,13 @@ function TargetCard({ target, onUpdate, onInvite, onDelete }) {
         {target.memo && <div className="text-sm text-slate-600 bg-slate-50 rounded-2xl p-3">{target.memo}</div>}
 
         <div className="grid grid-cols-3 gap-2">
-          <Button className="col-span-2 h-12 rounded-2xl bg-rose-500 hover:bg-rose-600" onClick={() => onInvite(target)}>
-            <Mail className="w-4 h-4 mr-2" /> 초대장 만들기
+          <Button
+            type="button"
+            disabled
+            className="col-span-2 h-12 rounded-2xl bg-slate-300 text-slate-500 cursor-not-allowed"
+            onClick={(e) => e.preventDefault()}
+          >
+            <Mail className="w-4 h-4 mr-2" /> 초대장 준비중
           </Button>
           <Button type="button" className="h-12 rounded-2xl" variant="outline" onClick={() => setConfirmDelete(true)}>
             <Trash2 className="w-4 h-4 mr-2" /> 삭제
@@ -702,9 +717,11 @@ function MemberView({ user, targets, setTargets, onInvite, reports, setReports }
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         <StatCard icon={Users} label={`${selectedGroup} 대상자`} value={myTargets.length} />
-        <StatCard icon={Gift} label="선물 완료" value={myTargets.reduce((a, t) => a + (t.gifts || []).filter(Boolean).length, 0)} sub="1~3차 합계" />
+        <StatCard icon={Gift} label="1차 선물" value={myTargets.filter((t) => (t.gifts || [])[0]).length} />
+        <StatCard icon={Gift} label="2차 선물" value={myTargets.filter((t) => (t.gifts || [])[1]).length} />
+        <StatCard icon={Gift} label="3차 선물" value={myTargets.filter((t) => (t.gifts || [])[2]).length} />
         <StatCard icon={Mail} label="초대장" value={myTargets.filter((t) => t.invited).length} />
         <StatCard icon={CalendarDays} label="참석 예정" value={myTargets.filter((t) => t.attending === "참석예정").length} />
       </div>
@@ -749,7 +766,7 @@ function MemberView({ user, targets, setTargets, onInvite, reports, setReports }
 }
 
 function WeeklyReportForm({ user, reports, setReports }) {
-  const [week, setWeek] = useState("5월 4주차");
+  const [week, setWeek] = useState("6월 1주차");
   const [reportGroup, setReportGroup] = useState(user.stretcherGroup || "1조");
   const [leaderName, setLeaderName] = useState(groupLeaders[user.stretcherGroup] || user.name || "");
   const [contactCount, setContactCount] = useState(0);
@@ -799,14 +816,9 @@ function WeeklyReportForm({ user, reports, setReports }) {
         <h3 className="font-black text-lg flex items-center gap-2"><Plus className="w-5 h-5 text-orange-500" /> 주간 활동보고 작성</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <select className="h-12 rounded-2xl bg-slate-50 px-4 outline-none" value={week} onChange={(e) => setWeek(e.target.value)}>
-            <option>5월 4주차</option>
-            <option>6월 1주차</option>
-            <option>6월 2주차</option>
-            <option>6월 3주차</option>
-            <option>6월 4주차</option>
-            <option>7월 1주차</option>
-            <option>7월 2주차</option>
-            <option>7월 3주차</option>
+            {reportWeeks.map((week) => (
+              <option key={week}>{week}</option>
+            ))}
           </select>
           <select className="h-12 rounded-2xl bg-slate-50 px-4 outline-none" value={reportGroup} onChange={(e) => changeReportGroup(e.target.value)}>
             {stretcherGroups.map((group) => <option key={group}>{group}</option>)}
@@ -940,15 +952,13 @@ function ReportsView({ user, reports, setReports }) {
   const isAdmin = user.role === "admin";
 const [selectedWeek, setSelectedWeek] = useState("전체");
 
-const weekTabs = [
-  "전체",
-  ...Array.from(new Set(reports.map((r) => r.week).filter(Boolean))),
-];
+const weekTabs = ["전체", ...reportWeeks];
 
 const visibleReports = reports.filter((r) => {
   const roleMatch = isAdmin || r.stretcherGroup === user.stretcherGroup;
+  const validWeek = reportWeeks.includes(r.week);
   const weekMatch = selectedWeek === "전체" || r.week === selectedWeek;
-  return roleMatch && weekMatch;
+  return roleMatch && validWeek && weekMatch;
 });
 
   const updatePastorComment = async (id, value) => {
@@ -1038,20 +1048,35 @@ function AdminView({ targets, reports, setReports }) {
     const map = {};
     targets.forEach((t) => {
       const group = t.stretcherGroup || "미지정";
-      if (!map[group]) map[group] = { dept: group, total: 0, invited: 0, attending: 0, gifts: 0 };
+      if (!map[group]) {
+        map[group] = {
+          dept: group,
+          total: 0,
+          invited: 0,
+          attending: 0,
+          gift1: 0,
+          gift2: 0,
+          gift3: 0,
+        };
+      }
+
       map[group].total += 1;
       if (t.invited) map[group].invited += 1;
       if (t.attending === "참석예정" || t.attending === "행사참석") map[group].attending += 1;
-      map[group].gifts += (t.gifts || []).filter(Boolean).length;
+      if ((t.gifts || [])[0]) map[group].gift1 += 1;
+      if ((t.gifts || [])[1]) map[group].gift2 += 1;
+      if ((t.gifts || [])[2]) map[group].gift3 += 1;
     });
     return Object.values(map).sort((a, b) => parseInt(a.dept) - parseInt(b.dept));
   }, [targets]);
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-7 gap-3">
         <StatCard icon={Users} label="전체 대상자" value={targets.length} />
-        <StatCard icon={Gift} label="선물 전달" value={targets.reduce((a, t) => a + (t.gifts || []).filter(Boolean).length, 0)} />
+        <StatCard icon={Gift} label="1차 선물" value={targets.filter((t) => (t.gifts || [])[0]).length} />
+        <StatCard icon={Gift} label="2차 선물" value={targets.filter((t) => (t.gifts || [])[1]).length} />
+        <StatCard icon={Gift} label="3차 선물" value={targets.filter((t) => (t.gifts || [])[2]).length} />
         <StatCard icon={Mail} label="초대장 발송" value={targets.filter((t) => t.invited).length} />
         <StatCard icon={CalendarDays} label="참석 예정" value={targets.filter((t) => t.attending === "참석예정").length} />
         <StatCard icon={HeartHandshake} label="행사 참석" value={targets.filter((t) => t.attending === "행사참석").length} />
@@ -1064,13 +1089,25 @@ function AdminView({ targets, reports, setReports }) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-slate-500 border-b">
-                  <th className="py-3">들것지기 조</th><th>대상자</th><th>선물전달</th><th>초대장</th><th>참석예정/참석</th>
+                  <th className="py-3">들것지기 조</th>
+                  <th>대상자</th>
+                  <th>1차 선물</th>
+                  <th>2차 선물</th>
+                  <th>3차 선물</th>
+                  <th>초대장</th>
+                  <th>참석예정/참석</th>
                 </tr>
               </thead>
               <tbody>
                 {byDept.map((d) => (
                   <tr key={d.dept} className="border-b last:border-0">
-                    <td className="py-4 font-bold">{d.dept}</td><td>{d.total}</td><td>{d.gifts}</td><td>{d.invited}</td><td>{d.attending}</td>
+                    <td className="py-4 font-bold">{d.dept}</td>
+                    <td>{d.total}</td>
+                    <td>{d.gift1}</td>
+                    <td>{d.gift2}</td>
+                    <td>{d.gift3}</td>
+                    <td>{d.invited}</td>
+                    <td>{d.attending}</td>
                   </tr>
                 ))}
               </tbody>

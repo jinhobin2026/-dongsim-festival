@@ -48,8 +48,7 @@ const stretcherGroupMembers = {
   "10조": ["김영미", "박재숙", "이도선", "나춘옥"],
   "11조": ["라은혜", "민수기", "백은아", "오미순"],
   "12조": ["이상은", "김용주", "박성민", "전민규"],
-  "들것지기 미포함조1": [],
-  "들것지기 미포함조2": [],
+  "미지정조": [],
 };
 
 const stretcherGroups = Object.keys(stretcherGroupMembers);
@@ -67,8 +66,7 @@ const groupLeaders = {
   "10조": "김영미",
   "11조": "라은혜",
   "12조": "이상은",
-  "들것지기 미포함조1": "미지정",
-  "들것지기 미포함조2": "미지정",
+ "미지정조": "라은혜",
 };
 
 const festivalSchedule = [
@@ -91,7 +89,7 @@ const reportWeeks = [
 const initialMembers = [
   { id: 1, name: "백종칠", stretcherGroup: "1조", phone: "010-1111-2222", role: "member" },
   { id: 2, name: "류 관", stretcherGroup: "2조", phone: "010-3333-4444", role: "member" },
-  { id: 3, name: "목사님", stretcherGroup: "들것지기 미포함조1", phone: "010-0000-0000", role: "admin" },
+  { id: 3, name: "목사님", stretcherGroup: "미지정조", phone: "010-0000-0000", role: "admin" },
 ];
 
 const initialTargets = [
@@ -194,7 +192,10 @@ const normalizeTarget = (id, data) => ({
   ownerId: data.ownerId || 0,
   ownerName: data.ownerName || "",
   evangelistName: data.evangelistName || data.ownerName || "",
-  stretcherGroup: data.stretcherGroup || "1조",
+  stretcherGroup:
+    data.stretcherGroup === "들것지기 미포함조1" || data.stretcherGroup === "들것지기 미포함조2"
+      ? "미지정조"
+      : data.stretcherGroup || "1조",
   name: data.name || "이름 없음",
   relation: data.relation || "",
   phone: data.phone || "",
@@ -209,7 +210,10 @@ const normalizeTarget = (id, data) => ({
 const normalizeReport = (id, data) => ({
   id,
   week: data.week || "미지정 주차",
-  stretcherGroup: data.stretcherGroup || "1조",
+  stretcherGroup:
+    data.stretcherGroup === "들것지기 미포함조1" || data.stretcherGroup === "들것지기 미포함조2"
+      ? "미지정조"
+      : data.stretcherGroup || "1조",
   leaderName: data.leaderName || "",
   contactCount: Number(data.contactCount) || 0,
   mealCount: Number(data.mealCount) || 0,
@@ -514,6 +518,8 @@ function TargetForm({ onAdd, currentUser, selectedGroup, onGroupChange }) {
 
   const submit = async () => {
     if (!name.trim()) return alert("대상자 이름을 입력해 주세요.");
+    if (!evangelistName.trim()) return alert("전도인 이름을 입력해 주세요.");
+    if (!evangelistName.trim()) return alert("전도인 이름을 입력해 주세요.");
 
     await addDoc(collection(db, "targets"), {
       ownerId: currentUser.id,
@@ -545,15 +551,36 @@ function TargetForm({ onAdd, currentUser, selectedGroup, onGroupChange }) {
           <select className="w-full h-12 rounded-2xl bg-slate-50 px-4 outline-none" value={stretcherGroup} onChange={(e) => changeStretcherGroup(e.target.value)}>
             {stretcherGroups.map((group) => <option key={group}>{group}</option>)}
           </select>
-          <select className="w-full h-12 rounded-2xl bg-slate-50 px-4 outline-none cursor-pointer" value={evangelistName} onChange={(e) => setEvangelistName(e.target.value)}>
-            <option value="">전도인 선택</option>
-            {groupMemberOptions.map((member) => <option key={member} value={member}>{member}</option>)}
-          </select>
+          {stretcherGroup === "미지정조" ? (
+            <input
+              className="w-full h-12 rounded-2xl bg-slate-50 px-4 outline-none"
+              placeholder="전도인 이름 직접 입력"
+              value={evangelistName}
+              onChange={(e) => setEvangelistName(e.target.value)}
+            />
+          ) : (
+            <select
+              className="w-full h-12 rounded-2xl bg-slate-50 px-4 outline-none cursor-pointer"
+              value={evangelistName}
+              onChange={(e) => setEvangelistName(e.target.value)}
+            >
+              <option value="">전도인 선택</option>
+              {groupMemberOptions.map((member) => (
+                <option key={member} value={member}>
+                  {member}
+                </option>
+              ))}
+            </select>
+          )}
           
         </div>
         <div className="rounded-2xl bg-orange-50 p-3 text-sm text-orange-800">
           <div className="font-bold">{stretcherGroup} 조장: {groupLeaders[stretcherGroup] || "미지정"}</div>
-          <div className="mt-1 text-xs leading-5">조장 및 조원: {groupMemberOptions.length ? groupMemberOptions.join(", ") : "조원 미지정 — 전도인 이름을 직접 입력해 주세요."}</div>
+          <div className="mt-1 text-xs leading-5">
+            {stretcherGroup === "미지정조"
+              ? "미지정조는 조원 목록 없이 전도인 이름을 직접 입력합니다."
+              : `조장 및 조원: ${groupMemberOptions.length ? groupMemberOptions.join(", ") : "조원 미지정"}`}
+          </div>
         </div>
         <input className="w-full h-12 rounded-2xl bg-slate-50 px-4 outline-none" placeholder="대상자 이름 예: 김OO" value={name} onChange={(e) => setName(e.target.value)} />
         <input className="w-full h-12 rounded-2xl bg-slate-50 px-4 outline-none" placeholder="관계 예: 가족, 친구, 직장동료, 이웃" value={relation} onChange={(e) => setRelation(e.target.value)} />
@@ -567,68 +594,287 @@ function TargetForm({ onAdd, currentUser, selectedGroup, onGroupChange }) {
 
 function TargetCard({ target, onUpdate, onInvite, onDelete }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+
+  const [editName, setEditName] = useState(target.name || "");
+  const [editRelation, setEditRelation] = useState(target.relation || "");
+  const [editPhone, setEditPhone] = useState(target.phone || "");
+  const [editMemo, setEditMemo] = useState(target.memo || "");
+  const [editEvangelistName, setEditEvangelistName] = useState(target.evangelistName || target.ownerName || "");
+  const [editStatus, setEditStatus] = useState(target.status || "기도중");
+  const [editAttending, setEditAttending] = useState(target.attending || "미정");
+
+  useEffect(() => {
+    setEditName(target.name || "");
+    setEditRelation(target.relation || "");
+    setEditPhone(target.phone || "");
+    setEditMemo(target.memo || "");
+    setEditEvangelistName(target.evangelistName || target.ownerName || "");
+    setEditStatus(target.status || "기도중");
+    setEditAttending(target.attending || "미정");
+  }, [target]);
+
   const statusIndex = statuses.indexOf(target.status);
+
+  const saveEdit = async () => {
+    if (!editName.trim()) {
+      alert("대상자 이름을 입력해 주세요.");
+      return;
+    }
+
+    if (!editEvangelistName.trim()) {
+      alert("전도인 이름을 입력해 주세요.");
+      return;
+    }
+
+    await onUpdate(target.id, {
+      name: editName.trim(),
+      relation: editRelation.trim(),
+      phone: editPhone.trim(),
+      memo: editMemo.trim(),
+      evangelistName: editEvangelistName.trim(),
+      ownerName: editEvangelistName.trim(),
+      status: editStatus,
+      attending: editAttending,
+      lastContact: new Date().toISOString().slice(0, 10),
+    });
+
+    setIsEditing(false);
+  };
+
+  const cancelEdit = () => {
+    setEditName(target.name || "");
+    setEditRelation(target.relation || "");
+    setEditPhone(target.phone || "");
+    setEditMemo(target.memo || "");
+    setEditEvangelistName(target.evangelistName || target.ownerName || "");
+    setEditStatus(target.status || "기도중");
+    setEditAttending(target.attending || "미정");
+    setIsEditing(false);
+  };
+
   return (
     <Card className="rounded-3xl border-0 shadow-sm overflow-hidden">
       <CardContent className="p-5 space-y-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h3 className="text-xl font-black text-slate-900">{target.name}</h3>
-            <div className="text-sm text-slate-500 mt-1">{target.relation || "관계 미입력"} · 들것지기 {target.stretcherGroup || "미지정"} · 전도인 {target.evangelistName || target.ownerName}</div>
+        {!isEditing ? (
+          <>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-xl font-black text-slate-900">{target.name}</h3>
+                <div className="text-sm text-slate-500 mt-1">
+                  {target.relation || "관계 미입력"} · 들것지기 {target.stretcherGroup || "미지정"} · 전도인 {target.evangelistName || target.ownerName}
+                </div>
+                {target.phone && (
+                  <div className="text-xs text-slate-400 mt-1">
+                    연락처 {target.phone}
+                  </div>
+                )}
+              </div>
+              <Pill>{statusEmoji[target.status]} {target.status}</Pill>
+            </div>
+
+            <div>
+              <div className="flex justify-between text-xs text-slate-400 mb-2">
+                <span>진행률</span>
+                <span>{Math.max(statusIndex + 1, 1)} / {statuses.length}</span>
+              </div>
+              <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-orange-400 rounded-full"
+                  style={{ width: `${((Math.max(statusIndex, 0) + 1) / statuses.length) * 100}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              {[0, 1, 2].map((i) => (
+                <button
+                  key={i}
+                  onClick={() =>
+                    onUpdate(target.id, {
+                      gifts: (target.gifts || [false, false, false]).map((g, idx) =>
+                        idx === i ? !g : g
+                      ),
+                    })
+                  }
+                  className={`rounded-2xl p-3 text-sm font-bold ${
+                    (target.gifts || [false, false, false])[i]
+                      ? "bg-orange-100 text-orange-700"
+                      : "bg-slate-50 text-slate-400"
+                  }`}
+                >
+                  🎁 {i + 1}차 {(target.gifts || [false, false, false])[i] ? "완료" : "예정"}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <select
+                className="h-12 rounded-2xl bg-slate-50 px-3 outline-none text-sm"
+                value={target.status}
+                onChange={(e) =>
+                  onUpdate(target.id, {
+                    status: e.target.value,
+                    lastContact: new Date().toISOString().slice(0, 10),
+                  })
+                }
+              >
+                {statuses.map((status) => (
+                  <option key={status}>{status}</option>
+                ))}
+              </select>
+
+              <select
+                className="h-12 rounded-2xl bg-slate-50 px-3 outline-none text-sm"
+                value={target.attending}
+                onChange={(e) => onUpdate(target.id, { attending: e.target.value })}
+              >
+                <option>미정</option>
+                <option>참석예정</option>
+                <option>불참</option>
+                <option>행사참석</option>
+              </select>
+            </div>
+
+            {target.memo && (
+              <div className="text-sm text-slate-600 bg-slate-50 rounded-2xl p-3">
+                {target.memo}
+              </div>
+            )}
+
+            <div className="grid grid-cols-3 gap-2">
+              <Button
+                type="button"
+                className="h-12 rounded-2xl"
+                variant="outline"
+                onClick={() => setIsEditing(true)}
+              >
+                수정
+              </Button>
+
+              <Button
+                type="button"
+                disabled
+                className="h-12 rounded-2xl bg-slate-300 text-slate-500 cursor-not-allowed"
+                onClick={(e) => e.preventDefault()}
+              >
+                <Mail className="w-4 h-4 mr-2" /> 준비중
+              </Button>
+
+              <Button
+                type="button"
+                className="h-12 rounded-2xl"
+                variant="outline"
+                onClick={() => setConfirmDelete(true)}
+              >
+                <Trash2 className="w-4 h-4 mr-2" /> 삭제
+              </Button>
+            </div>
+          </>
+        ) : (
+          <div className="space-y-3">
+            <div className="font-black text-lg text-orange-700">
+              전도 대상자 수정
+            </div>
+
+            <input
+              className="w-full h-12 rounded-2xl bg-slate-50 px-4 outline-none"
+              placeholder="전도인 이름"
+              value={editEvangelistName}
+              onChange={(e) => setEditEvangelistName(e.target.value)}
+            />
+
+            <input
+              className="w-full h-12 rounded-2xl bg-slate-50 px-4 outline-none"
+              placeholder="대상자 이름"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+            />
+
+            <input
+              className="w-full h-12 rounded-2xl bg-slate-50 px-4 outline-none"
+              placeholder="관계 예: 가족, 친구, 직장동료, 이웃"
+              value={editRelation}
+              onChange={(e) => setEditRelation(e.target.value)}
+            />
+
+            <input
+              className="w-full h-12 rounded-2xl bg-slate-50 px-4 outline-none"
+              placeholder="연락처"
+              value={editPhone}
+              onChange={(e) => setEditPhone(e.target.value)}
+            />
+
+            <div className="grid grid-cols-2 gap-2">
+              <select
+                className="h-12 rounded-2xl bg-slate-50 px-3 outline-none text-sm"
+                value={editStatus}
+                onChange={(e) => setEditStatus(e.target.value)}
+              >
+                {statuses.map((status) => (
+                  <option key={status}>{status}</option>
+                ))}
+              </select>
+
+              <select
+                className="h-12 rounded-2xl bg-slate-50 px-3 outline-none text-sm"
+                value={editAttending}
+                onChange={(e) => setEditAttending(e.target.value)}
+              >
+                <option>미정</option>
+                <option>참석예정</option>
+                <option>불참</option>
+                <option>행사참석</option>
+              </select>
+            </div>
+
+            <textarea
+              className="w-full min-h-24 rounded-2xl bg-slate-50 p-4 outline-none"
+              placeholder="기도 제목이나 접촉 메모"
+              value={editMemo}
+              onChange={(e) => setEditMemo(e.target.value)}
+            />
+
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 rounded-2xl"
+                onClick={cancelEdit}
+              >
+                취소
+              </Button>
+              <Button
+                type="button"
+                className="h-12 rounded-2xl bg-orange-500 hover:bg-orange-600"
+                onClick={saveEdit}
+              >
+                수정 저장
+              </Button>
+            </div>
           </div>
-          <Pill>{statusEmoji[target.status]} {target.status}</Pill>
-        </div>
-
-        <div>
-          <div className="flex justify-between text-xs text-slate-400 mb-2"><span>진행률</span><span>{Math.max(statusIndex + 1, 1)} / {statuses.length}</span></div>
-          <div className="h-3 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-orange-400 rounded-full" style={{ width: `${((Math.max(statusIndex, 0) + 1) / statuses.length) * 100}%` }} /></div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-2">
-          {[0, 1, 2].map((i) => (
-            <button key={i} onClick={() => onUpdate(target.id, { gifts: (target.gifts || [false, false, false]).map((g, idx) => idx === i ? !g : g) })} className={`rounded-2xl p-3 text-sm font-bold ${(target.gifts || [false, false, false])[i] ? "bg-orange-100 text-orange-700" : "bg-slate-50 text-slate-400"}`}>
-              🎁 {i + 1}차 {(target.gifts || [false, false, false])[i] ? "완료" : "예정"}
-            </button>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <select className="h-12 rounded-2xl bg-slate-50 px-3 outline-none text-sm" value={target.status} onChange={(e) => onUpdate(target.id, { status: e.target.value, lastContact: new Date().toISOString().slice(0, 10) })}>
-            {statuses.map((s) => <option key={s}>{s}</option>)}
-          </select>
-          <select className="h-12 rounded-2xl bg-slate-50 px-3 outline-none text-sm" value={target.attending} onChange={(e) => onUpdate(target.id, { attending: e.target.value })}>
-            <option>미정</option>
-            <option>참석예정</option>
-            <option>불참</option>
-            <option>행사참석</option>
-          </select>
-        </div>
-
-        {target.memo && <div className="text-sm text-slate-600 bg-slate-50 rounded-2xl p-3">{target.memo}</div>}
-
-        <div className="grid grid-cols-3 gap-2">
-          <Button
-            type="button"
-            disabled
-            className="col-span-2 h-12 rounded-2xl bg-slate-300 text-slate-500 cursor-not-allowed"
-            onClick={(e) => e.preventDefault()}
-          >
-            <Mail className="w-4 h-4 mr-2" /> 초대장 준비중
-          </Button>
-          <Button type="button" className="h-12 rounded-2xl" variant="outline" onClick={() => setConfirmDelete(true)}>
-            <Trash2 className="w-4 h-4 mr-2" /> 삭제
-          </Button>
-        </div>
+        )}
 
         {confirmDelete && (
           <div className="rounded-2xl border border-red-100 bg-red-50 p-4 space-y-3">
             <div className="font-bold text-red-700">정말 삭제하시겠습니까?</div>
-            <div className="text-sm text-red-600">{target.name} 전도 대상자 정보가 삭제됩니다.</div>
+            <div className="text-sm text-red-600">
+              {target.name} 전도 대상자 정보가 삭제됩니다.
+            </div>
             <div className="grid grid-cols-2 gap-2">
-              <Button type="button" variant="outline" className="rounded-2xl bg-white" onClick={() => setConfirmDelete(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-2xl bg-white"
+                onClick={() => setConfirmDelete(false)}
+              >
                 취소
               </Button>
-              <Button type="button" className="rounded-2xl bg-red-500 hover:bg-red-600" onClick={() => onDelete(target)}>
+              <Button
+                type="button"
+                className="rounded-2xl bg-red-500 hover:bg-red-600"
+                onClick={() => onDelete(target)}
+              >
                 삭제하기
               </Button>
             </div>
@@ -727,9 +973,9 @@ function MemberView({ user, targets, setTargets, onInvite, reports, setReports }
       </div>
 
       <div className="rounded-3xl bg-white/90 shadow-sm p-5 space-y-3">
-        <div className="font-black text-lg">들것지기 조별 대상자 보기</div>
+        <div className="font-black text-lg">조별 전도대상자</div>
         <div className="h-12 rounded-2xl bg-orange-50 px-4 flex items-center text-sm text-orange-700 font-bold">
-          현재 {selectedGroup}에 등록된 전도 대상자만 표시됩니다.
+          {selectedGroup}에 등록된 전도 대상자를 확인하고 관리합니다.
         </div>
       </div>
 
@@ -807,7 +1053,7 @@ function WeeklyReportForm({ user, reports, setReports }) {
 
   const changeReportGroup = (group) => {
     setReportGroup(group);
-    setLeaderName(groupLeaders[group] || "");
+    setLeaderName(group === "미지정조" ? "라은혜" : groupLeaders[group] || "");
   }; 
 
   return (
@@ -823,10 +1069,27 @@ function WeeklyReportForm({ user, reports, setReports }) {
           <select className="h-12 rounded-2xl bg-slate-50 px-4 outline-none" value={reportGroup} onChange={(e) => changeReportGroup(e.target.value)}>
             {stretcherGroups.map((group) => <option key={group}>{group}</option>)}
           </select>
-          <select className="h-12 rounded-2xl bg-orange-50 px-4 outline-none font-bold text-orange-700" value={leaderName} onChange={(e) => setLeaderName(e.target.value)}>
-            <option value="">조장 선택</option>
-            {leaderOptions.map((member) => <option key={member} value={member}>{member}</option>)}
-          </select>
+          {reportGroup === "미지정조" ? (
+            <input
+              className="h-12 rounded-2xl bg-orange-50 px-4 outline-none font-bold text-orange-700"
+              placeholder="보고자 이름 직접 입력"
+              value={leaderName}
+              onChange={(e) => setLeaderName(e.target.value)}
+            />
+          ) : (
+            <select
+              className="h-12 rounded-2xl bg-orange-50 px-4 outline-none font-bold text-orange-700"
+              value={leaderName}
+              onChange={(e) => setLeaderName(e.target.value)}
+            >
+              <option value="">조장 선택</option>
+              {leaderOptions.map((member) => (
+                <option key={member} value={member}>
+                  {member}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
         <div className="rounded-2xl bg-orange-50 p-3 text-sm text-orange-800">
           선택된 보고 조: <b>{reportGroup}</b> / 보고 조장: <b>{leaderName || "미선택"}</b>
@@ -976,15 +1239,7 @@ const visibleReports = reports.filter((r) => {
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <StatCard icon={Users} label="접촉" value={total.contact} />
-        <StatCard icon={HeartHandshake} label="식사/만남" value={total.meal} />
-        <StatCard icon={Gift} label="선물" value={total.gift} />
-        <StatCard icon={Mail} label="초대장" value={total.invite} />
-        <StatCard icon={CalendarDays} label="참석예상" value={total.expected} />
-      </div>
-
-      {!isAdmin && <WeeklyReportForm user={user} reports={reports} setReports={setReports} />}
+{!isAdmin && <WeeklyReportForm user={user} reports={reports} setReports={setReports} />}
 
       <Card className="rounded-3xl border-0 shadow-sm">
         <CardContent className="p-5 space-y-4">
@@ -1044,6 +1299,14 @@ const visibleReports = reports.filter((r) => {
 }
 
 function AdminView({ targets, reports, setReports }) {
+  const [selectedTargetGroup, setSelectedTargetGroup] = useState("전체");
+
+  const targetGroupTabs = ["전체", ...stretcherGroups];
+
+  const adminVisibleTargets = targets.filter((target) => {
+    return selectedTargetGroup === "전체" || target.stretcherGroup === selectedTargetGroup;
+  });
+
   const byDept = useMemo(() => {
     const map = {};
     targets.forEach((t) => {
@@ -1067,7 +1330,11 @@ function AdminView({ targets, reports, setReports }) {
       if ((t.gifts || [])[1]) map[group].gift2 += 1;
       if ((t.gifts || [])[2]) map[group].gift3 += 1;
     });
-    return Object.values(map).sort((a, b) => parseInt(a.dept) - parseInt(b.dept));
+    return Object.values(map).sort((a, b) => {
+      if (a.dept === "미지정조") return 1;
+      if (b.dept === "미지정조") return -1;
+      return parseInt(a.dept) - parseInt(b.dept);
+    });
   }, [targets]);
 
   return (
@@ -1116,13 +1383,45 @@ function AdminView({ targets, reports, setReports }) {
         </CardContent>
       </Card>
 
-      <ReportsView user={{ role: "admin" }} reports={reports} setReports={setReports} />
+
 
       <Card className="rounded-3xl border-0 shadow-sm">
         <CardContent className="p-5">
-          <h3 className="text-lg font-black mb-4">초청 대상자 현황</h3>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+            <div>
+              <h3 className="text-lg font-black">초청 대상자 현황</h3>
+              <p className="text-sm text-slate-500 mt-1">
+                전체 또는 조별로 전도 대상자를 확인할 수 있습니다.
+              </p>
+            </div>
+            <Pill>{selectedTargetGroup} {adminVisibleTargets.length}명</Pill>
+          </div>
+
+          <div className="flex flex-wrap gap-2 mb-4">
+            {targetGroupTabs.map((group) => (
+              <button
+                key={group}
+                type="button"
+                onClick={() => setSelectedTargetGroup(group)}
+                className={`px-4 py-2 rounded-2xl text-sm font-bold ${
+                  selectedTargetGroup === group
+                    ? "bg-orange-500 text-white"
+                    : "bg-slate-100 text-slate-600"
+                }`}
+              >
+                {group}
+              </button>
+            ))}
+          </div>
+
           <div className="space-y-3">
-            {targets.map((t) => (
+            {adminVisibleTargets.length === 0 && (
+              <div className="rounded-2xl bg-slate-50 p-5 text-sm text-slate-500 text-center">
+                선택한 조에 등록된 초청 대상자가 없습니다.
+              </div>
+            )}
+
+            {adminVisibleTargets.map((t) => (
               <div key={t.id} className="p-4 rounded-2xl bg-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-2">
                 <div>
                   <div className="font-bold">{t.name} <span className="text-xs text-slate-400">({t.relation})</span></div>
@@ -1134,6 +1433,9 @@ function AdminView({ targets, reports, setReports }) {
           </div>
         </CardContent>
       </Card>
+
+      <ReportsView user={{ role: "admin" }} reports={reports} setReports={setReports} />
+
     </div>
   );
 }
@@ -1244,14 +1546,42 @@ if (!user) return <LoginScreen onLogin={handleLogin} />;
           </div>
           <button className="md:hidden" onClick={() => setMobileMenu(!mobileMenu)}><Menu className="w-6 h-6" /></button>
         </div>
-        {mobileMenu && <div className="md:hidden px-4 pb-4 grid grid-cols-2 gap-2 bg-white">{menu.map((m) => <Button key={m.id} variant={tab === m.id ? "default" : "outline"} className="rounded-2xl" onClick={() => { setTab(m.id); setMobileMenu(false); }}>{m.label}</Button>)}</div>}
+        {mobileMenu && (
+          <div className="md:hidden px-4 pb-4 grid grid-cols-2 gap-2 bg-white">
+            {menu.map((m) => (
+              <Button
+                key={m.id}
+                variant={tab === m.id ? "default" : "outline"}
+                className="rounded-2xl"
+                onClick={() => {
+                  setTab(m.id);
+                  setMobileMenu(false);
+                }}
+              >
+                {m.label}
+              </Button>
+            ))}
+
+            <Button
+              variant="outline"
+              className="rounded-2xl"
+              onClick={() => {
+                setUser(null);
+                setMobileMenu(false);
+              }}
+            >
+              <LogIn className="w-4 h-4 mr-2" />
+              나가기
+            </Button>
+          </div>
+        )}
       </header>
 
       <main className="max-w-7xl mx-auto p-4 md:p-6 space-y-5">
         <section className="rounded-3xl bg-gradient-to-r from-orange-500 to-rose-500 text-white p-6 md:p-8 shadow-lg">
           <div className="max-w-3xl">
             <div className="text-sm opacity-90 mb-2">전 성도가 함께하는 7주 초청 여정</div>
-            <h1 className="text-3xl md:text-5xl font-black leading-tight">한 사람이 한 영혼을 품고<br />기도하고, 만나고, 초대합니다.</h1>
+            <h1 className="text-2xl md:text-5xl font-black leading-snug">한 사람이 한 영혼을 품고<br />기도하고, 만나고, 초대합니다.</h1>
             <p className="mt-4 text-white/90">대상자 등록부터 들것지기 조별 관리, 3차 선물 전달, 초대장 발송, 참석 예정 관리까지 한 화면에서 진행합니다.</p>
           </div>
         </section>

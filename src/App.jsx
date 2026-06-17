@@ -243,8 +243,12 @@ function StatCard({ icon: Icon, label, value, sub }) {
   );
 }
 
-function Pill({ children }) {
-  return <span className="px-3 py-1 rounded-full text-xs font-semibold bg-orange-50 text-orange-700">{children}</span>;
+function Pill({ children, className = "" }) {
+  return (
+    <span className={`px-3 py-1 rounded-full text-xs font-semibold bg-orange-50 text-orange-700 whitespace-nowrap ${className}`}>
+      {children}
+    </span>
+  );
 }
 
 
@@ -659,7 +663,7 @@ function TargetCard({ target, onUpdate, onInvite, onDelete }) {
         {!isEditing ? (
           <>
             <div className="flex items-start justify-between gap-3">
-              <div>
+              <div className="min-w-0 flex-1">
                 <h3 className="text-xl font-black text-slate-900">{target.name}</h3>
                 <div className="text-sm text-slate-500 mt-1">
                   {target.relation || "관계 미입력"} · 들것지기 {target.stretcherGroup || "미지정"} · 전도인 {target.evangelistName || target.ownerName}
@@ -670,7 +674,11 @@ function TargetCard({ target, onUpdate, onInvite, onDelete }) {
                   </div>
                 )}
               </div>
-              <Pill>{statusEmoji[target.status]} {target.status}</Pill>
+              <div className="shrink-0">
+  <Pill className="inline-flex items-center whitespace-nowrap text-[11px] px-2 min-w-fit">
+    {statusEmoji[target.status]} {target.status}
+  </Pill>
+</div>
             </div>
 
             <div>
@@ -742,10 +750,10 @@ function TargetCard({ target, onUpdate, onInvite, onDelete }) {
               </div>
             )}
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="flex gap-2">
               <Button
                 type="button"
-                className="h-12 rounded-2xl"
+               className="flex-1 h-12 rounded-2xl"
                 variant="outline"
                 onClick={() => setIsEditing(true)}
               >
@@ -755,7 +763,7 @@ function TargetCard({ target, onUpdate, onInvite, onDelete }) {
               <Button
                 type="button"
                 disabled
-                className="h-12 rounded-2xl bg-slate-300 text-slate-500 cursor-not-allowed"
+                className="flex-1 h-12 rounded-2xl bg-slate-300 text-slate-500 cursor-not-allowed whitespace-nowrap"
                 onClick={(e) => e.preventDefault()}
               >
                 <Mail className="w-4 h-4 mr-2" /> 준비중
@@ -763,7 +771,7 @@ function TargetCard({ target, onUpdate, onInvite, onDelete }) {
 
               <Button
                 type="button"
-                className="h-12 rounded-2xl"
+                className="flex-1 h-12 rounded-2xl"
                 variant="outline"
                 onClick={() => setConfirmDelete(true)}
               >
@@ -979,23 +987,6 @@ function MemberView({ user, targets, setTargets, onInvite, reports, setReports }
         </div>
       </div>
 
-      <WeeklyReportForm
-        user={{ ...user, stretcherGroup: selectedGroup }}
-        reports={reports}
-        setReports={setReports}
-      />
-
-      <PastorFeedbackList
-        user={{ ...user, stretcherGroup: selectedGroup }}
-        reports={reports}
-      />
-
-      <TargetForm
-        onAdd={onAdd}
-        currentUser={{ ...user, stretcherGroup: selectedGroup }}
-        selectedGroup={selectedGroup}
-      />
-
       <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
         {myTargets.map((target) => (
           <TargetCard
@@ -1007,6 +998,23 @@ function MemberView({ user, targets, setTargets, onInvite, reports, setReports }
           />
         ))}
       </div>
+
+      <TargetForm
+        onAdd={onAdd}
+        currentUser={{ ...user, stretcherGroup: selectedGroup }}
+        selectedGroup={selectedGroup}
+      />
+
+      <WeeklyReportForm
+        user={{ ...user, stretcherGroup: selectedGroup }}
+        reports={reports}
+        setReports={setReports}
+      />
+
+      <PastorFeedbackList
+        user={{ ...user, stretcherGroup: selectedGroup }}
+        reports={reports}
+      />
     </div>
   );
 }

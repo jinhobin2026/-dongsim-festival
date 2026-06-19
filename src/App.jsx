@@ -1315,6 +1315,65 @@ function AdminView({ targets, reports, setReports }) {
     return selectedTargetGroup === "전체" || target.stretcherGroup === selectedTargetGroup;
   });
 
+  const downloadTargetsCsv = () => {
+    const headers = [
+      "들것지기 조",
+      "전도인",
+      "대상자 이름",
+      "관계",
+      "연락처",
+      "상태",
+      "1차 선물",
+      "2차 선물",
+      "3차 선물",
+      "초대장",
+      "참석 여부",
+      "최근 접촉일",
+      "메모",
+    ];
+
+    const escapeCsv = (value) => {
+      const text = String(value ?? "");
+      return `"${text.replace(/"/g, '""')}"`;
+    };
+
+    const rows = adminVisibleTargets.map((target) => [
+      target.stretcherGroup || "",
+      target.evangelistName || target.ownerName || "",
+      target.name || "",
+      target.relation || "",
+      target.phone || "",
+      target.status || "",
+      (target.gifts || [])[0] ? "완료" : "예정",
+      (target.gifts || [])[1] ? "완료" : "예정",
+      (target.gifts || [])[2] ? "완료" : "예정",
+      target.invited ? "발송" : "미발송",
+      target.attending || "",
+      target.lastContact || "",
+      target.memo || "",
+    ]);
+
+    const csv = [headers, ...rows]
+      .map((row) => row.map(escapeCsv).join(","))
+      .join("\n");
+
+    const bom = "\uFEFF";
+    const blob = new Blob([bom + csv], {
+      type: "text/csv;charset=utf-8;",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const groupName = selectedTargetGroup === "전체" ? "전체" : selectedTargetGroup;
+
+    link.href = url;
+    link.download = `동심교회_새생명축제_초청대상자_${groupName}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const byDept = useMemo(() => {
     const map = {};
     targets.forEach((t) => {
@@ -1402,7 +1461,20 @@ function AdminView({ targets, reports, setReports }) {
                 전체 또는 조별로 전도 대상자를 확인할 수 있습니다.
               </p>
             </div>
-            <Pill>{selectedTargetGroup} {adminVisibleTargets.length}명</Pill>
+           <div className="flex items-center gap-2">
+  <Pill>
+    {selectedTargetGroup} {adminVisibleTargets.length}명
+  </Pill>
+
+  <Button
+    type="button"
+    variant="outline"
+    className="rounded-2xl"
+    onClick={downloadTargetsCsv}
+  >
+    📊 엑셀 다운로드
+  </Button>
+</div>
           </div>
 
           <div className="flex flex-wrap gap-2 mb-4">

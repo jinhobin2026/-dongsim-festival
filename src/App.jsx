@@ -177,6 +177,20 @@ const initialWeeklyReports = [
 ];
 
 const statuses = ["기도중", "연락함", "식사/만남", "선물전달", "초대장발송", "참석예정", "행사참석"];
+const formatPhoneNumber = (value) => {
+  const numbers = String(value || "").replace(/[^0-9]/g, "");
+
+  if (numbers.length === 11) {
+    return numbers.replace(/^(\d{3})(\d{4})(\d{4})$/, "$1-$2-$3");
+  }
+
+  if (numbers.length === 10) {
+    return numbers.replace(/^(\d{3})(\d{3})(\d{4})$/, "$1-$2-$3");
+  }
+
+  return numbers;
+};
+
 const statusEmoji = {
   기도중: "🙏",
   연락함: "📞",
@@ -532,7 +546,7 @@ function TargetForm({ onAdd, currentUser, selectedGroup, onGroupChange }) {
       stretcherGroup,
       name,
       relation,
-      phone,
+      phone: formatPhoneNumber(phone),
       memo,
       status: "기도중",
       gifts: [false, false, false],
@@ -552,8 +566,12 @@ function TargetForm({ onAdd, currentUser, selectedGroup, onGroupChange }) {
       <CardContent className="p-5 space-y-3">
         <h3 className="font-bold text-lg flex items-center gap-2"><Plus className="w-5 h-5 text-orange-500" /> 전도 대상자 등록</h3>
         <div className="grid grid-cols-2 gap-3">
-          <select className="w-full h-12 rounded-2xl bg-slate-50 px-4 outline-none" value={stretcherGroup} onChange={(e) => changeStretcherGroup(e.target.value)}>
-            {stretcherGroups.map((group) => <option key={group}>{group}</option>)}
+          <select
+            className="w-full h-12 rounded-2xl bg-slate-50 px-4 outline-none text-slate-700"
+            value={stretcherGroup}
+            disabled
+          >
+            <option value={stretcherGroup}>{stretcherGroup}</option>
           </select>
           {stretcherGroup === "미지정조" ? (
             <input
@@ -586,9 +604,27 @@ function TargetForm({ onAdd, currentUser, selectedGroup, onGroupChange }) {
               : `조장 및 조원: ${groupMemberOptions.length ? groupMemberOptions.join(", ") : "조원 미지정"}`}
           </div>
         </div>
-        <input className="w-full h-12 rounded-2xl bg-slate-50 px-4 outline-none" placeholder="대상자 이름 예: 김OO" value={name} onChange={(e) => setName(e.target.value)} />
-        <input className="w-full h-12 rounded-2xl bg-slate-50 px-4 outline-none" placeholder="관계 예: 가족, 친구, 직장동료, 이웃" value={relation} onChange={(e) => setRelation(e.target.value)} />
-        <input className="w-full h-12 rounded-2xl bg-slate-50 px-4 outline-none" placeholder="연락처 선택 입력" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <input
+  className="w-full h-12 rounded-2xl bg-slate-50 px-4 outline-none"
+  placeholder="대상자 이름 예: 김OO"
+  value={name}
+  onChange={(e) => setName(e.target.value)}
+/>
+
+<input
+  className="w-full h-12 rounded-2xl bg-slate-50 px-4 outline-none"
+  placeholder="관계 예: 가족, 친구, 직장동료, 이웃"
+  value={relation}
+  onChange={(e) => setRelation(e.target.value)}
+/>
+
+<input
+  className="w-full h-12 rounded-2xl bg-slate-50 px-4 outline-none"
+  placeholder="연락처 입력 - 숫자만 입력"
+  value={phone}
+  onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, ""))}
+  onBlur={() => setPhone(formatPhoneNumber(phone))}
+/>
         <textarea className="w-full min-h-24 rounded-2xl bg-slate-50 p-4 outline-none" placeholder="기도 제목이나 접촉 메모" value={memo} onChange={(e) => setMemo(e.target.value)} />
         <Button className="w-full h-12 rounded-2xl bg-orange-500 hover:bg-orange-600" onClick={submit}>등록하기</Button>
       </CardContent>
@@ -634,7 +670,7 @@ function TargetCard({ target, onUpdate, onInvite, onDelete }) {
     await onUpdate(target.id, {
       name: editName.trim(),
       relation: editRelation.trim(),
-      phone: editPhone.trim(),
+      phone: formatPhoneNumber(editPhone),
       memo: editMemo.trim(),
       evangelistName: editEvangelistName.trim(),
       ownerName: editEvangelistName.trim(),
@@ -807,11 +843,12 @@ function TargetCard({ target, onUpdate, onInvite, onDelete }) {
             />
 
             <input
-              className="w-full h-12 rounded-2xl bg-slate-50 px-4 outline-none"
-              placeholder="연락처"
-              value={editPhone}
-              onChange={(e) => setEditPhone(e.target.value)}
-            />
+  className="w-full h-12 rounded-2xl bg-slate-50 px-4 outline-none"
+  placeholder="연락처 입력 - 숫자만 입력"
+  value={editPhone}
+  onChange={(e) => setEditPhone(e.target.value.replace(/[^0-9]/g, ""))}
+  onBlur={() => setEditPhone(formatPhoneNumber(editPhone))}
+/>
 
             <div className="grid grid-cols-2 gap-2">
               <select
@@ -1342,7 +1379,7 @@ function AdminView({ targets, reports, setReports }) {
       target.evangelistName || target.ownerName || "",
       target.name || "",
       target.relation || "",
-      target.phone || "",
+      formatPhoneNumber(target.phone),
       target.status || "",
       (target.gifts || [])[0] ? "완료" : "예정",
       (target.gifts || [])[1] ? "완료" : "예정",

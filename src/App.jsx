@@ -562,7 +562,7 @@ function TargetForm({ onAdd, currentUser, selectedGroup, onGroupChange }) {
   };
 
   return (
-    <Card className="rounded-3xl border-0 shadow-sm">
+    <Card id="weekly-report-form" className="rounded-3xl border-0 shadow-sm">
       <CardContent className="p-5 space-y-3">
         <h3 className="font-bold text-lg flex items-center gap-2"><Plus className="w-5 h-5 text-orange-500" /> 전도 대상자 등록</h3>
         <div className="grid grid-cols-2 gap-3">
@@ -1056,6 +1056,7 @@ function MemberView({ user, targets, setTargets, onInvite, reports, setReports }
   );
 }
 
+
 function WeeklyReportForm({ user, reports, setReports }) {
   const [week, setWeek] = useState("6월 1주차");
   const [reportGroup, setReportGroup] = useState(user.stretcherGroup || "1조");
@@ -1067,11 +1068,29 @@ function WeeklyReportForm({ user, reports, setReports }) {
   const [expectedCount, setExpectedCount] = useState(0);
   const [prayer, setPrayer] = useState("");
   const [note, setNote] = useState("");
+  const [editingReportId, setEditingReportId] = useState(null);
+
   const leaderOptions = stretcherGroupMembers[reportGroup] || [];
+  const myReports = reports
+    .filter((report) => report.stretcherGroup === user.stretcherGroup)
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+
+  const resetForm = () => {
+    setEditingReportId(null);
+    setWeek("6월 1주차");
+    setReportGroup(user.stretcherGroup || "1조");
+    setLeaderName(groupLeaders[user.stretcherGroup] || user.name || "");
+    setContactCount(0);
+    setMealCount(0);
+    setGiftCount(0);
+    setInviteCount(0);
+    setExpectedCount(0);
+    setPrayer("");
+    setNote("");
+  };
 
   const submitReport = async () => {
     const report = {
-      id: Date.now(),
       week,
       stretcherGroup: reportGroup,
       leaderName: leaderName || groupLeaders[reportGroup] || "조장",
@@ -1082,141 +1101,153 @@ function WeeklyReportForm({ user, reports, setReports }) {
       expectedCount: Number(expectedCount) || 0,
       prayer,
       note,
-      pastorComment: "",
       createdAt: new Date().toISOString().slice(0, 10),
     };
 
-    await addDoc(collection(db, "reports"), report);
-    setPrayer("");
-    setNote("");
-    setContactCount(0);
-    setMealCount(0);
-    setGiftCount(0);
-    setInviteCount(0);
-    setExpectedCount(0);
+    if (editingReportId) {
+      await updateDoc(doc(db, "reports", String(editingReportId)), report);
+      alert("주간 활동보고가 수정되었습니다.");
+    } else {
+      await addDoc(collection(db, "reports"), { ...report, pastorComment: "" });
+      alert("주간 활동보고가 제출되었습니다.");
+    }
+
+    resetForm();
   };
 
-  const changeReportGroup = (group) => {
-    setReportGroup(group);
-    setLeaderName(group === "미지정조" ? "라은혜" : groupLeaders[group] || "");
-  }; 
+  const editReport = (report) => {
+    setEditingReportId(report.id);
+    setWeek(report.week || "6월 1주차");
+    setReportGroup(report.stretcherGroup || user.stretcherGroup || "1조");
+    setLeaderName(report.leaderName || groupLeaders[report.stretcherGroup] || user.name || "");
+    setContactCount(report.contactCount || 0);
+    setMealCount(report.mealCount || 0);
+    setGiftCount(report.giftCount || 0);
+    setInviteCount(report.inviteCount || 0);
+    setExpectedCount(report.expectedCount || 0);
+    setPrayer(report.prayer || "");
+    setNote(report.note || "");
+    setTimeout(() => {
+      document.getElementById("weekly-report-form")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 100);
+  };
+
+  const deleteReport = async (report) => {
+    if (!window.confirm(report.week + " 활동보고를 삭제하시겠습니까?")) return;
+    await deleteDoc(doc(db, "reports", String(report.id)));
+    if (editingReportId === report.id) resetForm();
+    alert("주간 활동보고가 삭제되었습니다.");
+  };
 
   return (
     <Card className="rounded-3xl border-0 shadow-sm">
       <CardContent className="p-5 space-y-4">
-        <h3 className="font-black text-lg flex items-center gap-2"><Plus className="w-5 h-5 text-orange-500" /> 주간 활동보고 작성</h3>
+        <h3 className="font-black text-lg flex items-center gap-2">
+          <Plus className="w-5 h-5 text-orange-500" />
+          {editingReportId ? "주간 활동보고 수정" : "주간 활동보고 작성"}
+        </h3>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <select className="h-12 rounded-2xl bg-slate-50 px-4 outline-none" value={week} onChange={(e) => setWeek(e.target.value)}>
-            {reportWeeks.map((week) => (
-              <option key={week}>{week}</option>
-            ))}
+            {reportWeeks.map((week) => <option key={week}>{week}</option>)}
           </select>
-          <select className="h-12 rounded-2xl bg-slate-50 px-4 outline-none" value={reportGroup} onChange={(e) => changeReportGroup(e.target.value)}>
-            {stretcherGroups.map((group) => <option key={group}>{group}</option>)}
+
+          <select className="h-12 rounded-2xl bg-slate-50 px-4 outline-none" value={reportGroup} disabled>
+            <option value={reportGroup}>{reportGroup}</option>
           </select>
+
           {reportGroup === "미지정조" ? (
-            <input
-              className="h-12 rounded-2xl bg-orange-50 px-4 outline-none font-bold text-orange-700"
-              placeholder="보고자 이름 직접 입력"
-              value={leaderName}
-              onChange={(e) => setLeaderName(e.target.value)}
-            />
+            <input className="h-12 rounded-2xl bg-orange-50 px-4 outline-none font-bold text-orange-700" value={leaderName} onChange={(e) => setLeaderName(e.target.value)} />
           ) : (
-            <select
-              className="h-12 rounded-2xl bg-orange-50 px-4 outline-none font-bold text-orange-700"
-              value={leaderName}
-              onChange={(e) => setLeaderName(e.target.value)}
-            >
+            <select className="h-12 rounded-2xl bg-orange-50 px-4 outline-none font-bold text-orange-700" value={leaderName} onChange={(e) => setLeaderName(e.target.value)}>
               <option value="">조장 선택</option>
-              {leaderOptions.map((member) => (
-                <option key={member} value={member}>
-                  {member}
-                </option>
-              ))}
+              {leaderOptions.map((member) => <option key={member} value={member}>{member}</option>)}
             </select>
           )}
-        </div>
-        <div className="rounded-2xl bg-orange-50 p-3 text-sm text-orange-800">
-          선택된 보고 조: <b>{reportGroup}</b> / 보고 조장: <b>{leaderName || "미선택"}</b>
-        </div>
-
-        <div className="rounded-2xl bg-orange-50 p-4 text-sm text-orange-800">
-          <div className="font-bold text-base">
-            📋 주간 들것지기 활동보고
-          </div>
-          <div className="mt-1">
-            보고조 : <b>{reportGroup}</b>
-          </div>
-          <div>
-            보고자 : <b>{leaderName || "미선택"} 조장</b>
-          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
           <div className="space-y-2">
             <div className="text-sm font-bold text-slate-600">👥 접촉인원</div>
-            <input
-              type="number"
-              value={contactCount}
-              onChange={(e) => setContactCount(e.target.value)}
-              className="h-12 w-full rounded-2xl bg-slate-50 px-4 outline-none"
-              placeholder="0"
-            />
+            <input type="number" value={contactCount} onChange={(e) => setContactCount(e.target.value)} className="h-12 w-full rounded-2xl bg-slate-50 px-4 outline-none" placeholder="0" />
           </div>
-
           <div className="space-y-2">
             <div className="text-sm font-bold text-slate-600">🍚 식사/만남</div>
-            <input
-              type="number"
-              value={mealCount}
-              onChange={(e) => setMealCount(e.target.value)}
-              className="h-12 w-full rounded-2xl bg-slate-50 px-4 outline-none"
-              placeholder="0"
-            />
+            <input type="number" value={mealCount} onChange={(e) => setMealCount(e.target.value)} className="h-12 w-full rounded-2xl bg-slate-50 px-4 outline-none" placeholder="0" />
           </div>
-
           <div className="space-y-2">
             <div className="text-sm font-bold text-slate-600">🎁 선물전달</div>
-            <input
-              type="number"
-              value={giftCount}
-              onChange={(e) => setGiftCount(e.target.value)}
-              className="h-12 w-full rounded-2xl bg-slate-50 px-4 outline-none"
-              placeholder="0"
-            />
+            <input type="number" value={giftCount} onChange={(e) => setGiftCount(e.target.value)} className="h-12 w-full rounded-2xl bg-slate-50 px-4 outline-none" placeholder="0" />
           </div>
-
           <div className="space-y-2">
             <div className="text-sm font-bold text-slate-600">✉️ 초대장전달</div>
-            <input
-              type="number"
-              value={inviteCount}
-              onChange={(e) => setInviteCount(e.target.value)}
-              className="h-12 w-full rounded-2xl bg-slate-50 px-4 outline-none"
-              placeholder="0"
-            />
+            <input type="number" value={inviteCount} onChange={(e) => setInviteCount(e.target.value)} className="h-12 w-full rounded-2xl bg-slate-50 px-4 outline-none" placeholder="0" />
           </div>
-
           <div className="space-y-2">
             <div className="text-sm font-bold text-slate-600">🙏 참석예상</div>
-            <input
-              type="number"
-              value={expectedCount}
-              onChange={(e) => setExpectedCount(e.target.value)}
-              className="h-12 w-full rounded-2xl bg-slate-50 px-4 outline-none"
-              placeholder="0"
-            />
+            <input type="number" value={expectedCount} onChange={(e) => setExpectedCount(e.target.value)} className="h-12 w-full rounded-2xl bg-slate-50 px-4 outline-none" placeholder="0" />
           </div>
         </div>
 
         <textarea className="w-full min-h-24 rounded-2xl bg-slate-50 p-4 outline-none" placeholder="특별 기도제목" value={prayer} onChange={(e) => setPrayer(e.target.value)} />
         <textarea className="w-full min-h-24 rounded-2xl bg-slate-50 p-4 outline-none" placeholder="기타 보고 / 도움이 필요한 부분" value={note} onChange={(e) => setNote(e.target.value)} />
-        <Button className="w-full h-12 rounded-2xl bg-orange-500 hover:bg-orange-600" onClick={submitReport}>보고서 제출하기</Button>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          {editingReportId && <Button type="button" variant="outline" className="h-12 rounded-2xl" onClick={resetForm}>수정 취소</Button>}
+          <Button className="h-12 rounded-2xl bg-orange-500 hover:bg-orange-600" onClick={submitReport}>
+            {editingReportId ? "수정 저장하기" : "보고서 제출하기"}
+          </Button>
+        </div>
+
+        <div className="pt-4 border-t border-slate-100 space-y-3">
+          <h4 className="font-black text-base">제출한 주간 활동보고</h4>
+
+          {myReports.length === 0 && <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">아직 제출한 주간 활동보고가 없습니다.</div>}
+
+          {myReports.map((report) => (
+            <div key={report.id} className="rounded-2xl bg-slate-50 p-4 space-y-3">
+              <div className="flex justify-between gap-2">
+                <div>
+                  <div className="font-black">{report.week} · {report.stretcherGroup}</div>
+                  <div className="text-xs text-slate-500">보고자 {report.leaderName} · 작성일 {report.createdAt}</div>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <Button
+                    type="button"
+                    className="rounded-2xl bg-orange-500 hover:bg-orange-600 text-white shadow-sm px-4"
+                    onClick={() => editReport(report)}
+                  >
+                    수정
+                  </Button>
+                  <Button
+                    type="button"
+                    className="rounded-2xl bg-white border border-red-200 text-red-600 hover:bg-red-50 shadow-sm px-4"
+                    onClick={() => deleteReport(report)}
+                  >
+                    삭제
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm">
+                <div className="rounded-xl bg-white p-3">접촉 <b>{report.contactCount}</b></div>
+                <div className="rounded-xl bg-white p-3">식사 <b>{report.mealCount}</b></div>
+                <div className="rounded-xl bg-white p-3">선물 <b>{report.giftCount}</b></div>
+                <div className="rounded-xl bg-white p-3">초대장 <b>{report.inviteCount}</b></div>
+                <div className="rounded-xl bg-white p-3">참석예상 <b>{report.expectedCount}</b></div>
+              </div>
+            </div>
+          ))}
+        </div>
       </CardContent>
     </Card>
   );
 }
-  function PastorCommentEditor({ report, onSave }) {
+
+function PastorCommentEditor({ report, onSave }) {
   const [comment, setComment] = useState(report.pastorComment || "");
   const [saved, setSaved] = useState(false);
 
